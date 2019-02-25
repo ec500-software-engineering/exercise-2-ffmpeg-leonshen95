@@ -1,16 +1,15 @@
 language: python
 group: travis_latest
 dist: xenial
-addons:
-  apt:
-    packages:ffmpeg
 
-install:pip install -e 
-git:
-  depth: 25
-  quiet: true
 python:
 - 3.7
+
+addons:
+  apt:
+    packages: ffmpeg
+
+install: pip install -e .
 
 script:
 - flake8 --extend-ignore=W,E1,E2,E3,E5
