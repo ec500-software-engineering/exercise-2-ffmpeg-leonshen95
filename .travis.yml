@@ -6,7 +6,9 @@ addons:
     packages:ffmpeg
 
 install:pip install -e 
-
+git:
+  depth: 25
+  quiet: true
 python:
 - 3.7
 
