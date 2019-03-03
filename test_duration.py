@@ -1,17 +1,57 @@
-import ffprobe as probe
-import encode as convert
+import subprocess
+import json
+import encode
+import queue
 from pytest import approx
 
-def test_duration():
-    fnin = 'realshort.mp4'
-    fnout = 'realshort480_test.mp4'
 
-    orig_meta = probe.ffprobe_sync(fnin)
-    orig_duration = float(orig_meta['streams'][0]['duration'])
+class TestClass(object):
+    def test_one(self):
+        in_queue = queue.Queue()
+        for i in range(3):
+            in_queue.put('video' + str(i + 1) + '.avi')
+        in_queue.put('quit')
+        result = check_out(in_queue)
+        assert result == 0
 
-    convert.main()
 
-    meta_480 = probe.ffprobe_sync(fnout)
-    duration_480 = float(meta_480['streams'][0]['duration'])
+def check_out(input_queue):
+    q1 = queue.Queue()
+    q2 = queue.Queue()
+    while not input_queue.empty():
+        tmp = input_queue.get()
+        q1.put(tmp)
+        q2.put(tmp)
+    encode.convert('realshort.mp4',480,1,'test.mp4')
+    while not q2.empty():
+        vi = q2.get()
+        if vi == 'quit':
+            break
+        ori_log = []
+        log480 = []
+        log720 = []
+        ori_log = json.loads(
+            subprocess.check_output(['ffprobe', '-v', 'warning', '-print_format', 'json', '-show_format', vi]))
+        while True:
+            try:
+                print(vi[:-4] + '480p' + vi[-4:])
+                log480 = json.loads(subprocess.check_output(['ffprobe', '-v', 'warning',
+                                                             '-print_format', 'json',
+                                                             '-show_format',
+                                                             vi[:-4] + '480p' + vi[-4:]]))
+                log720 = json.loads(subprocess.check_output(['ffprobe', '-v', 'warning',
+                                                             '-print_format', 'json',
+                                                             '-show_format',
+                                                             vi[:-4] + '720p' + vi[-4:]]))
+                if log480 != [] and log720 != []:
+                    break
+            except IOError:
+                continue
 
-    assert orig_duration == approx(duration_480)
+        ori_duration = float(ori_log['format']['duration'])
+        duration480 = float(log480['format']['duration'])
+        duration720 = float(log720['format']['duration'])
+        if not ori_duration == approx(duration480, abs=1e-1):
+            return 1
+        if not ori_duration == approx(duration720, abs=1e-1):
+            return 1
